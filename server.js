@@ -1,0 +1,6 @@
+import http from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {create,join,rooms,action,view} from './game.js';
+const files={'/':'index.html','/app.js':'app.js','/style.css':'style.css'};
+const server=http.createServer(async(req,res)=>{try{const u=new URL(req.url,'http://localhost');if(u.pathname==='/api'&&req.method==='POST'){let body='';for await(const chunk of req){body+=chunk;if(body.length>10000){res.writeHead(413).end();return;}}const d=JSON.parse(body);let result;if(d.type==='create')result=create(d.name);else if(d.type==='join')result=join(rooms.get(String(d.code).toUpperCase()),d.name);else{const r=rooms.get(d.code);if(d.type!=='view')action(r,d.token,d.type,d.value);result=view(r,d.token);}res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(result));return;}const file=files[u.pathname];if(!file){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('css')?'text/css':file.endsWith('js')?'text/javascript':'text/html');res.end(await readFile(new URL('./public/'+file,import.meta.url)));}catch(e){res.writeHead(400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:e.message}));}});
+server.listen(Number(process.env.PORT)||3000,'0.0.0.0',()=>console.log('Absolutely Worthless listening on port '+(process.env.PORT||3000)));

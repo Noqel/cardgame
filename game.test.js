@@ -1,0 +1,9 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {create,join,rooms,action,view,score} from './game.js';
+function setup(){const a=create('Alice'),r=rooms.get(a.code),b=join(r,'Bob');action(r,a.token,'start');return {a,b,r};}
+test('private views never expose another player goal or hidden lot traits',()=>{const {a,b,r}=setup();const v=view(r,a.token);assert.equal(v.players[1].goal,undefined);assert.equal(v.deck,undefined);assert.equal(v.lot[0].tags.length,1);action(r,a.token,'inspect');assert.deepEqual(view(r,a.token).lot[0].tags,r.lot[0].tags);assert.equal(view(r,b.token).lot[0].hidden,true);});
+test('winner pays once, receives lot, and advances auction',()=>{const {a,b,r}=setup();const item=r.lot[0];action(r,a.token,'bid',7);assert.throws(()=>action(r,b.token,'bid',41));action(r,b.token,'pass');assert.equal(r.round,2);assert.equal(r.players[0].coins,33);assert.equal(r.players[0].items[0],item);assert.equal(r.bid,0);});
+test('passing locks bids and all-pass discards the lot',()=>{const {a,b,r}=setup();action(r,a.token,'pass');assert.throws(()=>action(r,a.token,'bid',1));action(r,b.token,'pass');assert.equal(r.round,2);assert.equal(r.players[0].items.length,0);});
+test('eight auctions end with automatic score and revealed goals',()=>{const {a,b,r}=setup();for(let i=0;i<8;i++){action(r,a.token,'pass');action(r,b.token,'pass');}assert.equal(r.phase,'finished');assert.equal(view(r,a.token).players[0].score,8);assert.ok(view(r,a.token).players[1].goal);assert.equal(score({goal:['x','haunted'],coins:9,items:Array.from({length:3},()=>({tags:['haunted']}))}),21);});
+test('bundle is limited and cannot alter a lot after bidding',()=>{const {a,b,r}=setup();action(r,a.token,'bundle');assert.equal(r.lot.length,2);assert.throws(()=>action(r,b.token,'bundle'));action(r,a.token,'bid',1);assert.throws(()=>action(r,b.token,'bundle'));});
